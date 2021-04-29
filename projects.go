@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -75,6 +75,8 @@ type Project struct {
 	EmptyRepo                                 bool                       `json:"empty_repo"`
 	Archived                                  bool                       `json:"archived"`
 	AvatarURL                                 string                     `json:"avatar_url"`
+	LicenseURL                                string                     `json:"license_url"`
+	License                                   *ProjectLicense            `json:"license"`
 	SharedRunnersEnabled                      bool                       `json:"shared_runners_enabled"`
 	ForksCount                                int                        `json:"forks_count"`
 	StarCount                                 int                        `json:"star_count"`
@@ -106,18 +108,22 @@ type Project struct {
 	PagesAccessLevel                          AccessControlValue         `json:"pages_access_level"`
 	OperationsAccessLevel                     AccessControlValue         `json:"operations_access_level"`
 	AutocloseReferencedIssues                 bool                       `json:"autoclose_referenced_issues"`
+	SuggestionCommitMessage                   string                     `json:"suggestion_commit_message"`
 	CIForwardDeploymentEnabled                bool                       `json:"ci_forward_deployment_enabled"`
 	SharedWithGroups                          []struct {
 		GroupID          int    `json:"group_id"`
 		GroupName        string `json:"group_name"`
 		GroupAccessLevel int    `json:"group_access_level"`
 	} `json:"shared_with_groups"`
-	Statistics           *ProjectStatistics `json:"statistics"`
-	Links                *Links             `json:"_links,omitempty"`
-	CIConfigPath         string             `json:"ci_config_path"`
-	CIDefaultGitDepth    int                `json:"ci_default_git_depth"`
-	CustomAttributes     []*CustomAttribute `json:"custom_attributes"`
-	ComplianceFrameworks []string           `json:"compliance_frameworks"`
+	Statistics            *ProjectStatistics `json:"statistics"`
+	Links                 *Links             `json:"_links,omitempty"`
+	CIConfigPath          string             `json:"ci_config_path"`
+	CIDefaultGitDepth     int                `json:"ci_default_git_depth"`
+	CustomAttributes      []*CustomAttribute `json:"custom_attributes"`
+	ComplianceFrameworks  []string           `json:"compliance_frameworks"`
+	BuildCoverageRegex    string             `json:"build_coverage_regex"`
+	IssuesTemplate        string             `json:"issues_template"`
+	MergeRequestsTemplate string             `json:"merge_requests_template"`
 }
 
 // ContainerExpirationPolicy represents the container expiration policy.
@@ -159,6 +165,16 @@ type ProjectNamespace struct {
 	AvatarURL string `json:"avatar_url"`
 	WebURL    string `json:"web_url"`
 }
+
+// ProjectLicense represent the license for a project.
+type ProjectLicense struct {
+	Key       string `json:"key"`
+	Name      string `json:"name"`
+	Nickname  string `json:"nickname"`
+	HTMLURL   string `json:"html_url"`
+	SourceURL string `json:"source_url"`
+}
+
 
 // StorageStatistics represents a statistics record for a group or project.
 type StorageStatistics struct {
@@ -534,6 +550,9 @@ type CreateProjectOptions struct {
 	PackagesEnabled                           *bool                                `url:"packages_enabled,omitempty" json:"packages_enabled,omitempty"`
 	ServiceDeskEnabled                        *bool                                `url:"service_desk_enabled,omitempty" json:"service_desk_enabled,omitempty"`
 	AutocloseReferencedIssues                 *bool                                `url:"autoclose_referenced_issues,omitempty" json:"autoclose_referenced_issues,omitempty"`
+	SuggestionCommitMessage                   *string                              `url:"suggestion_commit_message,omitempty" json:"suggestion_commit_message,omitempty"`
+	IssuesTemplate                            *string                              `url:"issues_template,omitempty" json:"issues_template,omitempty"`
+	MergeRequestsTemplate                     *string                              `url:"merge_requests_template,omitempty" json:"merge_requests_template,omitempty"`
 
 	// Deprecated members
 	IssuesEnabled        *bool `url:"issues_enabled,omitempty" json:"issues_enabled,omitempty"`
@@ -671,6 +690,9 @@ type EditProjectOptions struct {
 	PackagesEnabled                           *bool                                `url:"packages_enabled,omitempty" json:"packages_enabled,omitempty"`
 	ServiceDeskEnabled                        *bool                                `url:"service_desk_enabled,omitempty" json:"service_desk_enabled,omitempty"`
 	AutocloseReferencedIssues                 *bool                                `url:"autoclose_referenced_issues,omitempty" json:"autoclose_referenced_issues,omitempty"`
+	SuggestionCommitMessage                   *string                              `url:"suggestion_commit_message,omitempty" json:"suggestion_commit_message,omitempty"`
+	IssuesTemplate                            *string                              `url:"issues_template,omitempty" json:"issues_template,omitempty"`
+	MergeRequestsTemplate                     *string                              `url:"merge_requests_template,omitempty" json:"merge_requests_template,omitempty"`
 
 	// Deprecated members
 	IssuesEnabled        *bool `url:"issues_enabled,omitempty" json:"issues_enabled,omitempty"`
@@ -948,6 +970,7 @@ type ProjectHook struct {
 	PipelineEvents           bool       `json:"pipeline_events"`
 	WikiPageEvents           bool       `json:"wiki_page_events"`
 	DeploymentEvents         bool       `json:"deployment_events"`
+	ReleasesEvents           bool       `json:"releases_events"`
 	EnableSSLVerification    bool       `json:"enable_ssl_verification"`
 	CreatedAt                *time.Time `json:"created_at"`
 }
@@ -1025,6 +1048,7 @@ type AddProjectHookOptions struct {
 	PipelineEvents           *bool   `url:"pipeline_events,omitempty" json:"pipeline_events,omitempty"`
 	WikiPageEvents           *bool   `url:"wiki_page_events,omitempty" json:"wiki_page_events,omitempty"`
 	DeploymentEvents         *bool   `url:"deployment_events,omitempty" json:"deployment_events,omitempty"`
+	ReleasesEvents           *bool   `url:"releases_events,omitempty" json:"releases_events,omitempty"`
 	EnableSSLVerification    *bool   `url:"enable_ssl_verification,omitempty" json:"enable_ssl_verification,omitempty"`
 	Token                    *string `url:"token,omitempty" json:"token,omitempty"`
 }
@@ -1072,6 +1096,7 @@ type EditProjectHookOptions struct {
 	PipelineEvents           *bool   `url:"pipeline_events,omitempty" json:"pipeline_events,omitempty"`
 	WikiPageEvents           *bool   `url:"wiki_page_events,omitempty" json:"wiki_page_events,omitempty"`
 	DeploymentEvents         *bool   `url:"deployment_events,omitempty" json:"deployment_events,omitempty"`
+	ReleasesEvents           *bool   `url:"releases_events,omitempty" json:"releases_events,omitempty"`
 	EnableSSLVerification    *bool   `url:"enable_ssl_verification,omitempty" json:"enable_ssl_verification,omitempty"`
 	Token                    *string `url:"token,omitempty" json:"token,omitempty"`
 }
@@ -1198,7 +1223,8 @@ func (s *ProjectsService) UploadFile(pid interface{}, file string, options ...Re
 	b := &bytes.Buffer{}
 	w := multipart.NewWriter(b)
 
-	fw, err := w.CreateFormFile("file", file)
+	_, filename := filepath.Split(file)
+	fw, err := w.CreateFormFile("file", filename)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1209,15 +1235,18 @@ func (s *ProjectsService) UploadFile(pid interface{}, file string, options ...Re
 	}
 	w.Close()
 
-	req, err := s.client.NewRequest("", u, nil, options)
+	req, err := s.client.NewRequest(http.MethodPost, u, nil, options)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	req.Body = ioutil.NopCloser(b)
-	req.ContentLength = int64(b.Len())
+	// Set the buffer as the request body.
+	if err = req.SetBody(b); err != nil {
+		return nil, nil, err
+	}
+
+	// Overwrite the default content type.
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	req.Method = http.MethodPost
 
 	uf := &ProjectFile{}
 	resp, err := s.client.Do(req, uf)
@@ -1420,6 +1449,7 @@ type ProjectApprovals struct {
 	DisableOverridingApproversPerMergeRequest bool                         `json:"disable_overriding_approvers_per_merge_request"`
 	MergeRequestsAuthorApproval               bool                         `json:"merge_requests_author_approval"`
 	MergeRequestsDisableCommittersApproval    bool                         `json:"merge_requests_disable_committers_approval"`
+	RequirePasswordToApprove                  bool                         `json:"require_password_to_approve"`
 }
 
 // GetApprovalConfiguration get the approval configuration for a project.
@@ -1458,6 +1488,7 @@ type ChangeApprovalConfigurationOptions struct {
 	DisableOverridingApproversPerMergeRequest *bool `url:"disable_overriding_approvers_per_merge_request,omitempty" json:"disable_overriding_approvers_per_merge_request,omitempty"`
 	MergeRequestsAuthorApproval               *bool `url:"merge_requests_author_approval,omitempty" json:"merge_requests_author_approval,omitempty"`
 	MergeRequestsDisableCommittersApproval    *bool `url:"merge_requests_disable_committers_approval,omitempty" json:"merge_requests_disable_committers_approval,omitempty"`
+	RequirePasswordToApprove                  *bool `url:"require_password_to_approve,omitempty" json:"require_password_to_approve,omitempty"`
 }
 
 // ChangeApprovalConfiguration updates the approval configuration for a project.

@@ -43,6 +43,7 @@ type Job struct {
 	FinishedAt        *time.Time `json:"finished_at"`
 	Duration          float64    `json:"duration"`
 	ArtifactsExpireAt *time.Time `json:"artifacts_expire_at"`
+	TagList           []string   `json:"tag_list"`
 	ID                int        `json:"id"`
 	Name              string     `json:"name"`
 	Pipeline          struct {
@@ -183,6 +184,31 @@ func (s *JobsService) ListPipelineBridges(pid interface{}, pipelineID int, opts 
 	}
 
 	return bridges, resp, err
+}
+
+// GetJobTokensJobOptions represents the available GetJobTokensJob() options.
+//
+// GitLab API docs: https://docs.gitlab.com/ce/api/jobs.html#get-job-tokens-job
+type GetJobTokensJobOptions struct {
+	JobToken *string `url:"job_token,omitempty" json:"job_token,omitempty"`
+}
+
+// GetJobTokensJob retrieves the job that generated a job token.
+//
+// GitLab API docs: https://docs.gitlab.com/ce/api/jobs.html#get-job-tokens-job
+func (s *JobsService) GetJobTokensJob(opts *GetJobTokensJobOptions, options ...RequestOptionFunc) (*Job, *Response, error) {
+	req, err := s.client.NewRequest(http.MethodGet, "job", opts, options)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	job := new(Job)
+	resp, err := s.client.Do(req, job)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return job, resp, err
 }
 
 // GetJob gets a single job of a project.

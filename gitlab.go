@@ -122,6 +122,7 @@ type Client struct {
 	GitIgnoreTemplates    *GitIgnoreTemplatesService
 	GroupBadges           *GroupBadgesService
 	GroupCluster          *GroupClustersService
+	GroupImportExport     *GroupImportExportService
 	GroupIssueBoards      *GroupIssueBoardsService
 	GroupLabels           *GroupLabelsService
 	GroupMembers          *GroupMembersService
@@ -152,6 +153,7 @@ type Client struct {
 	PipelineTriggers      *PipelineTriggersService
 	Pipelines             *PipelinesService
 	ProjectBadges         *ProjectBadgesService
+	ProjectAccessTokens   *ProjectAccessTokensService
 	ProjectCluster        *ProjectClustersService
 	ProjectImportExport   *ProjectImportExportService
 	ProjectMembers        *ProjectMembersService
@@ -160,12 +162,14 @@ type Client struct {
 	ProjectVariables      *ProjectVariablesService
 	Projects              *ProjectsService
 	ProtectedBranches     *ProtectedBranchesService
+	ProtectedEnvironments *ProtectedEnvironmentsService
 	ProtectedTags         *ProtectedTagsService
 	ReleaseLinks          *ReleaseLinksService
 	Releases              *ReleasesService
 	Repositories          *RepositoriesService
 	RepositoryFiles       *RepositoryFilesService
 	ResourceLabelEvents   *ResourceLabelEventsService
+	ResourceStateEvents   *ResourceStateEventsService
 	Runners               *RunnersService
 	Search                *SearchService
 	Services              *ServicesService
@@ -290,6 +294,7 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.GitIgnoreTemplates = &GitIgnoreTemplatesService{client: c}
 	c.GroupBadges = &GroupBadgesService{client: c}
 	c.GroupCluster = &GroupClustersService{client: c}
+	c.GroupImportExport = &GroupImportExportService{client: c}
 	c.GroupIssueBoards = &GroupIssueBoardsService{client: c}
 	c.GroupLabels = &GroupLabelsService{client: c}
 	c.GroupMembers = &GroupMembersService{client: c}
@@ -320,6 +325,7 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.PipelineTriggers = &PipelineTriggersService{client: c}
 	c.Pipelines = &PipelinesService{client: c}
 	c.ProjectBadges = &ProjectBadgesService{client: c}
+	c.ProjectAccessTokens = &ProjectAccessTokensService{client: c}
 	c.ProjectCluster = &ProjectClustersService{client: c}
 	c.ProjectImportExport = &ProjectImportExportService{client: c}
 	c.ProjectMembers = &ProjectMembersService{client: c}
@@ -328,12 +334,14 @@ func newClient(options ...ClientOptionFunc) (*Client, error) {
 	c.ProjectVariables = &ProjectVariablesService{client: c}
 	c.Projects = &ProjectsService{client: c}
 	c.ProtectedBranches = &ProtectedBranchesService{client: c}
+	c.ProtectedEnvironments = &ProtectedEnvironmentsService{client: c}
 	c.ProtectedTags = &ProtectedTagsService{client: c}
 	c.ReleaseLinks = &ReleaseLinksService{client: c}
 	c.Releases = &ReleasesService{client: c}
 	c.Repositories = &RepositoriesService{client: c}
 	c.RepositoryFiles = &RepositoryFilesService{client: c}
 	c.ResourceLabelEvents = &ResourceLabelEventsService{client: c}
+	c.ResourceStateEvents = &ResourceStateEventsService{client: c}
 	c.Runners = &RunnersService{client: c}
 	c.Search = &SearchService{client: c}
 	c.Services = &ServicesService{client: c}

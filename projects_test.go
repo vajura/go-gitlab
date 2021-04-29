@@ -219,7 +219,8 @@ func TestGetProjectByID(t *testing.T) {
 			  "name_regex_keep": null,
 			  "next_run_at": "2020-01-07T21:42:58.658Z"
 			},
-			"packages_enabled": false
+			"packages_enabled": false,
+			"build_coverage_regex": "Total.*([0-9]{1,3})%"
 		  }`)
 	})
 
@@ -231,7 +232,8 @@ func TestGetProjectByID(t *testing.T) {
 			Cadence:   "7d",
 			NextRunAt: &wantTimestamp,
 		},
-		PackagesEnabled: false,
+		PackagesEnabled:    false,
+		BuildCoverageRegex: `Total.*([0-9]{1,3})%`,
 	}
 
 	project, _, err := client.Projects.GetProject(1, nil)
@@ -365,6 +367,50 @@ func TestUploadFile(t *testing.T) {
 	}
 }
 
+func TestUploadFile_Retry(t *testing.T) {
+	mux, server, client := setup(t)
+	defer teardown(server)
+
+	tf, _ := ioutil.TempFile(os.TempDir(), "test")
+	defer os.Remove(tf.Name())
+
+	isFirstRequest := true
+	mux.HandleFunc("/api/v4/projects/1/uploads", func(w http.ResponseWriter, r *http.Request) {
+		if isFirstRequest {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			isFirstRequest = false
+			return
+		}
+		if false == strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data;") {
+			t.Fatalf("Prokects.UploadFile request content-type %+v want multipart/form-data;", r.Header.Get("Content-Type"))
+		}
+		if r.ContentLength == -1 {
+			t.Fatalf("Prokects.UploadFile request content-length is -1")
+		}
+		fmt.Fprint(w, `{
+                  "alt": "dk",
+                    "url": "/uploads/66dbcd21ec5d24ed6ea225176098d52b/dk.md",
+                    "markdown": "![dk](/uploads/66dbcd21ec5d24ed6ea225176098d52b/dk.png)"
+                }`)
+	})
+
+	want := &ProjectFile{
+		Alt:      "dk",
+		URL:      "/uploads/66dbcd21ec5d24ed6ea225176098d52b/dk.md",
+		Markdown: "![dk](/uploads/66dbcd21ec5d24ed6ea225176098d52b/dk.png)",
+	}
+
+	file, _, err := client.Projects.UploadFile(1, tf.Name())
+
+	if err != nil {
+		t.Fatalf("Prokects.UploadFile returns an error: %v", err)
+	}
+
+	if !reflect.DeepEqual(want, file) {
+		t.Errorf("Prokects.UploadFile returned %+v, want %+v", file, want)
+	}
+}
+
 func TestListProjectForks(t *testing.T) {
 	mux, server, client := setup(t)
 	defer teardown(server)
@@ -441,7 +487,8 @@ func TestGetApprovalConfiguration(t *testing.T) {
 			"reset_approvals_on_push": false,
 			"disable_overriding_approvers_per_merge_request": false,
 			"merge_requests_author_approval": true,
-			"merge_requests_disable_committers_approval": true
+			"merge_requests_disable_committers_approval": true,
+			"require_password_to_approve": true
 		}`)
 	})
 
@@ -458,6 +505,7 @@ func TestGetApprovalConfiguration(t *testing.T) {
 		DisableOverridingApproversPerMergeRequest: false,
 		MergeRequestsAuthorApproval:               true,
 		MergeRequestsDisableCommittersApproval:    true,
+		RequirePasswordToApprove:                  true,
 	}
 
 	if !reflect.DeepEqual(want, approvals) {
@@ -479,7 +527,8 @@ func TestChangeApprovalConfiguration(t *testing.T) {
 			"reset_approvals_on_push": false,
 			"disable_overriding_approvers_per_merge_request": false,
 			"merge_requests_author_approval": true,
-			"merge_requests_disable_committers_approval": true
+			"merge_requests_disable_committers_approval": true,
+			"require_password_to_approve": true
 		}`)
 	})
 
@@ -500,6 +549,7 @@ func TestChangeApprovalConfiguration(t *testing.T) {
 		DisableOverridingApproversPerMergeRequest: false,
 		MergeRequestsAuthorApproval:               true,
 		MergeRequestsDisableCommittersApproval:    true,
+		RequirePasswordToApprove:                  true,
 	}
 
 	if !reflect.DeepEqual(want, approvals) {
